@@ -24,14 +24,14 @@ caller (agent / app)
    ┌────┴────┐
    │         │
 embeddings  asyncpg pool (min=5, max=20)
-(Anthropic  │
- voyage-3)  ▼
-        PostgreSQL 16
-          pgvector extension
-          ivfflat index (cosine)
+(fastembed  │
+ ONNX,      ▼
+ local)  PostgreSQL 16
+           pgvector extension
+           ivfflat index (cosine)
 ```
 
-**Write path:** content → Anthropic embedding API (with retry + jitter) → INSERT with 1024-dim vector → return memory ID.
+**Write path:** content → fastembed ONNX inference (local, ~12 ms CPU, `BAAI/bge-small-en-v1.5`) → INSERT with 384-dim vector → return memory ID.
 
 **Read path:** query → embed → pgvector cosine search (top_k × 3 candidates) → re-rank with recency decay in Python → return top_k results with scores.
 
@@ -77,13 +77,11 @@ Sliding window counter via upsert. One fewer dependency. Correct under concurren
 
 ## Running locally
 
-**Prerequisites:** Docker, Docker Compose, an Anthropic API key.
+**Prerequisites:** Docker and Docker Compose. No API keys required — the entire stack runs locally.
 
 ```bash
 git clone https://github.com/ayushagrawal288/memex
 cd memex
-cp .env.example .env
-# add your ANTHROPIC_API_KEY to .env
 docker compose up
 ```
 
@@ -215,8 +213,11 @@ memex/
 │   ├── models/
 │   │   └── schemas.py           # Pydantic request/response models
 │   ├── services/
-│   │   ├── embeddings.py        # Anthropic embedding API + retry
+│   │   ├── embeddings.py        # fastembed ONNX inference (local, zero API calls)
+│   │   ├── local_summarizer.py  # Extractive summariser — Jaccard dedup + TF scoring
 │   │   ├── memory.py            # Core write/search/scoring logic
+│   │   ├── metrics.py           # Prometheus metric definitions
+│   │   ├── summarizer.py        # Background summarisation job
 │   │   └── rate_limit.py        # Sliding window rate limiter
 │   └── api/routes/
 │       ├── memories.py          # Memory endpoints
@@ -255,11 +256,13 @@ Custom metrics are in `app/services/metrics.py` and exposed on `/metrics` alongs
 
 ## Memory summarisation
 
-Runs as a background asyncio task on a configurable interval (default: every 5 minutes). Finds any `(agent_id, user_id)` pair where episodic memory count exceeds a threshold, condenses the oldest batch into a single `semantic` memory using Claude Haiku, then deletes the originals.
+Runs as a background asyncio task on a configurable interval (default: every 5 minutes). Finds any `(agent_id, user_id)` pair where episodic memory count exceeds a threshold, condenses the oldest batch into a single `semantic` memory, then deletes the originals. **Fully local — no LLM API calls.**
+
+**How it summarises:** Pure Python extractive algorithm. Sentences are deduplicated by Jaccard similarity (≥ 0.7 threshold), scored by word frequency (TF), and the top-N are returned in original order. ~1 ms per summarisation, zero dependencies beyond the standard library.
 
 **Why episodic-only:** Episodic memories are conversation events with natural time-based obsolescence. Semantic and procedural memories encode facts and skills — silently condensing them risks precision loss; they age out via recency decay instead.
 
-**Concurrency safety:** Uses `pg_try_advisory_xact_lock` keyed on `hashtext(agent_id|user_id)`. The lock is held only during the DB write transaction, not during the Claude or embedding API calls.
+**Concurrency safety:** Uses `pg_try_advisory_xact_lock` keyed on `hashtext(agent_id|user_id)`. The lock is held only during the DB write transaction, not during the embedding call.
 
 Tune via env vars:
 
@@ -269,13 +272,12 @@ Tune via env vars:
 | `SUMMARIZATION_THRESHOLD` | `100` | Episodic count to trigger per pair |
 | `SUMMARIZATION_BATCH_SIZE` | `50` | Oldest N memories to condense per run |
 | `SUMMARIZATION_INTERVAL_SECONDS` | `300` | How often the job wakes up |
-| `SUMMARIZATION_MODEL` | `claude-haiku-4-5-20251001` | Claude model for summarisation |
 
 ---
 
 ## What's next
 
-- [x] **Memory summarisation** — background job to condense old memories using Claude when count exceeds threshold, keeping context windows lean
+- [x] **Memory summarisation** — background job to condense old episodic memories (local extractive algorithm, zero API calls) when count exceeds threshold
 - [x] **Prometheus + Grafana** — p50/p99 latency dashboards, embedding API call duration, pool saturation
 - [ ] **MCP-compatible endpoint** — expose memex as a Claude tool so any agent using MCP can plug in without custom integration
 - [ ] **HNSW index option** — flag to switch from ivfflat to HNSW for deployments with >1M vectors
@@ -288,10 +290,11 @@ Tune via env vars:
 | Layer | Choice | Why |
 |---|---|---|
 | API | FastAPI + uvicorn | Async-first, fast, excellent OpenAPI generation |
-| Embeddings | Anthropic voyage-3 | 1024-dim, strong semantic quality |
+| Embeddings | fastembed ONNX (`BAAI/bge-small-en-v1.5`) | Local, zero API calls, ~12 ms CPU inference, 384-dim |
 | Database | PostgreSQL 16 + pgvector | Relational + vector in one system, no extra infra |
 | Vector index | ivfflat | Lower build cost than HNSW at this scale |
 | Pool | asyncpg | Direct control, zero ORM overhead |
-| Retry | tenacity | Jitter-based backoff on embedding API calls |
+| Summariser | Pure Python extractive | Jaccard dedup + TF scoring, zero ML deps, ~1 ms |
+| Retry | tenacity | Jitter-based backoff on transient errors |
 | Metrics | Prometheus + prometheus-fastapi-instrumentator | Standard observability |
 | Load testing | Locust | Python-native, realistic user simulation |
