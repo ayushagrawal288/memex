@@ -1,0 +1,67 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: memex
+      POSTGRES_PASSWORD: memex
+      POSTGRES_DB: memex
+    # Allow enough connections for N workers × pool_max each.
+    # Default pg max_connections=100 is too low for 4 workers × 20 = 80 connections
+    # plus Prometheus/health check overhead.
+    command: postgres -c max_connections=200
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U memex"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://memex:memex@db:5432/memex
+      WORKERS: 4
+      # Disable rate limiting for load testing — we're measuring embedding/DB
+      # throughput, not the rate limiter. Set to real values in production.
+      RATE_LIMIT_WRITES_PER_MINUTE: 999999
+      RATE_LIMIT_SEARCHES_PER_MINUTE: 999999
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  pgdata:
+  grafana_data:

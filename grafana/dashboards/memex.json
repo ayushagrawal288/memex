@@ -1,0 +1,189 @@
+{
+  "title": "memex",
+  "uid": "memex-overview",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "HTTP Request Rate",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(http_requests_total[1m])) by (handler, status_code)",
+          "legendFormat": "{{handler}} {{status_code}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "HTTP Latency — p50 / p99",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_highr_seconds_bucket[1m])) by (le, handler))",
+          "legendFormat": "p50 {{handler}}"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_highr_seconds_bucket[1m])) by (le, handler))",
+          "legendFormat": "p99 {{handler}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Embedding API Latency — p50 / p99",
+      "description": "Per-attempt latency (excludes tenacity retry wait time). A p99 spike here directly explains HTTP latency spikes on write and search paths.",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.50, sum(rate(memex_embedding_duration_seconds_bucket[1m])) by (le, operation))",
+          "legendFormat": "p50 {{operation}}"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, sum(rate(memex_embedding_duration_seconds_bucket[1m])) by (le, operation))",
+          "legendFormat": "p99 {{operation}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Memory Operations / s",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(memex_memory_operations_total[1m])) by (operation)",
+          "legendFormat": "{{operation}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "DB Pool Utilisation",
+      "description": "Active = total − idle. Watch for active approaching pool max (20 by default) — that's when requests start queueing.",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2 },
+          "min": 0
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "memex_db_pool_size - memex_db_pool_idle",
+          "legendFormat": "active"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "memex_db_pool_idle",
+          "legendFormat": "idle"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "memex_db_pool_size",
+          "legendFormat": "total"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Summariser Activity",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "memories condensed / h" },
+            "properties": [{ "id": "unit", "value": "short" }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "runs ok / h" },
+            "properties": [{ "id": "unit", "value": "short" }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "runs errored / h" },
+            "properties": [{ "id": "unit", "value": "short" }, { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "increase(memex_summarizer_memories_condensed_total[1h])",
+          "legendFormat": "memories condensed / h"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "increase(memex_summarizer_runs_total{status=\"ok\"}[1h])",
+          "legendFormat": "runs ok / h"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "increase(memex_summarizer_runs_total{status=\"error\"}[1h])",
+          "legendFormat": "runs errored / h"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Embedding Errors / min",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2 }
+        }
+      },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(memex_embedding_errors_total[1m])) by (operation, error_type)",
+          "legendFormat": "{{operation}} / {{error_type}}"
+        }
+      ]
+    }
+  ]
+}

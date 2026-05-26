@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+dist/
+*.egg-info/
+.DS_Store
+locust_report/
+
+# Claude Code local settings (machine-specific permissions)
+.claude/settings.local.json
