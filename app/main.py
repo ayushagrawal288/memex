@@ -81,6 +81,7 @@ app.include_router(health.router)
 app.include_router(memories.router, prefix="/v1")
 
 
+
 @app.get("/")
 async def root():
     return {

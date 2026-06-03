@@ -205,7 +205,8 @@ Every write and every search requires one ONNX inference (~10–15 ms on CPU). W
 ```
 memex/
 ├── app/
-│   ├── main.py                  # FastAPI app, lifespan, router registration
+│   ├── main.py                  # REST API — FastAPI, lifespan, router registration
+│   ├── mcp_server.py            # MCP server — single-worker FastAPI on port 8001
 │   ├── core/
 │   │   └── config.py            # All settings, loaded from env
 │   ├── db/
@@ -221,7 +222,8 @@ memex/
 │   │   └── rate_limit.py        # Sliding window rate limiter
 │   └── api/routes/
 │       ├── memories.py          # Memory endpoints
-│       └── health.py            # Health + readiness
+│       ├── health.py            # Health + readiness
+│       └── mcp_tools.py         # MCP tool definitions (store, search, delete, count)
 ├── scripts/
 │   └── load_test.py             # Locust load test
 ├── docker-compose.yml
@@ -237,7 +239,8 @@ memex/
 
 | Service | URL | Credentials |
 |---|---|---|
-| API docs | http://localhost:8000/docs | — |
+| REST API docs | http://localhost:8000/docs | — |
+| MCP server | http://localhost:8001/mcp/ | — |
 | Prometheus | http://localhost:9090 | — |
 | Grafana | http://localhost:3000 | admin / admin |
 
@@ -251,6 +254,50 @@ The Grafana dashboard is provisioned automatically. Panels:
 - **Embedding errors/min** — by operation and error type
 
 Custom metrics are in `app/services/metrics.py` and exposed on `/metrics` alongside the standard FastAPI instrumentator metrics.
+
+---
+
+## MCP endpoint
+
+memex exposes itself as an [MCP](https://modelcontextprotocol.io) server so any MCP-aware agent (Claude Desktop, Claude Code, custom agents) can store and retrieve memories without custom HTTP integration.
+
+**Transport:** Streamable HTTP (MCP 2024-11-05 spec). Single-worker process on port 8001 — session state is in-process, so a separate service avoids sticky-session complexity while keeping the REST API's multi-worker throughput.
+
+**Tools:**
+
+| Tool | Description |
+|---|---|
+| `store_memory` | Embed + persist a memory (type, importance configurable) |
+| `search_memories` | Semantic + recency ranked retrieval with configurable alpha |
+| `delete_memory` | Forget a specific memory by UUID |
+| `count_memories` | How many memories an agent/user pair has |
+
+### Connect from Claude Desktop
+
+Add to `~/.config/claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "memex": {
+      "type": "streamable-http",
+      "url": "http://localhost:8001/mcp/"
+    }
+  }
+}
+```
+
+### Connect from Claude Code
+
+```bash
+claude mcp add --transport http memex http://localhost:8001/mcp/
+```
+
+### Design: why a separate service
+
+The MCP Streamable HTTP transport is session-stateful — `initialize`, `tools/list`, and `tools/call` must all reach the **same server process**. The REST API runs 4 uvicorn workers with round-robin routing; routing different MCP requests to different workers breaks session state.
+
+Running a dedicated single-worker MCP service on port 8001 avoids sticky-session infrastructure (nginx `ip_hash`, Redis session store) while keeping the REST API fully multi-worker.
 
 ---
 
@@ -279,7 +326,7 @@ Tune via env vars:
 
 - [x] **Memory summarisation** — background job to condense old episodic memories (local extractive algorithm, zero API calls) when count exceeds threshold
 - [x] **Prometheus + Grafana** — p50/p99 latency dashboards, embedding API call duration, pool saturation
-- [ ] **MCP-compatible endpoint** — expose memex as a Claude tool so any agent using MCP can plug in without custom integration
+- [x] **MCP-compatible endpoint** — Streamable HTTP server on port 8001; 4 tools (store, search, delete, count); connects to Claude Desktop and Claude Code
 - [ ] **HNSW index option** — flag to switch from ivfflat to HNSW for deployments with >1M vectors
 - [ ] **Importance-weighted retrieval** — factor `importance` score into ranking formula alongside similarity and recency
 

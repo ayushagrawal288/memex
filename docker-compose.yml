@@ -36,6 +36,20 @@ services:
     volumes:
       - .:/app
 
+  mcp:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql://memex:memex@db:5432/memex
+      WORKERS: 1   # single worker — MCP session state is in-process
+    command: uvicorn app.mcp_server:mcp_app --host 0.0.0.0 --port 8001 --workers 1
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+
   prometheus:
     image: prom/prometheus:v2.53.0
     ports:
