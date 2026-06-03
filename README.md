@@ -1,5 +1,11 @@
 # memex
 
+[![GitHub release](https://img.shields.io/github/v/release/ayushagrawal288/memex)](https://github.com/ayushagrawal288/memex/releases)
+[![Python](https://img.shields.io/badge/python-3.12-blue)](https://www.python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)](https://fastapi.tiangolo.com)
+[![MCP](https://img.shields.io/badge/MCP-Streamable%20HTTP-purple)](https://modelcontextprotocol.io)
+[![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
+
 A production-grade persistent memory service for AI agents. Agents forget everything between sessions by default — memex fixes that. It stores, retrieves, and ranks conversation memory using semantic search with recency decay, so agents surface what's relevant *and* recent, not just what's semantically closest.
 
 ```
