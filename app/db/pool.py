@@ -11,8 +11,8 @@ and increase db_max_pool_size to match PgBouncer's server_pool_size.
 """
 
 import asyncpg
-from app.core.config import settings
 
+from app.core.config import settings
 
 _pool: asyncpg.Pool | None = None
 

@@ -8,7 +8,7 @@ Design decision: Postgres over Redis because:
   (Redis atomic operations are more efficient for pure counting workloads)
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.core.config import settings
 from app.db.pool import get_pool
@@ -29,7 +29,7 @@ async def check_rate_limit(agent_id: str, operation: str) -> tuple[bool, int]:
         if operation == "write"
         else settings.rate_limit_searches_per_minute
     )
-    window_key = _window_key(datetime.now(timezone.utc))
+    window_key = _window_key(datetime.now(UTC))
 
     pool = get_pool()
     async with pool.acquire() as conn:

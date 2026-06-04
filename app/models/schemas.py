@@ -1,11 +1,11 @@
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 
-class MemoryType(str, Enum):
+class MemoryType(StrEnum):
     episodic = "episodic"       # specific events / conversations
     semantic = "semantic"       # facts, preferences, general knowledge
     procedural = "procedural"   # how to do things / workflows

@@ -19,7 +19,7 @@ Design decision: scoring happens in Python, not SQL, because:
 """
 
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from app.core.config import settings
@@ -28,12 +28,11 @@ from app.models.schemas import MemoryCreate, MemoryResponse, MemoryType
 from app.services.embeddings import embed
 from app.services.metrics import MEMORY_OPS_TOTAL
 
-
 _DECAY_LAMBDA = math.log(2) / settings.recency_decay_days
 
 
 def _recency_weight(created_at: datetime) -> float:
-    age_seconds = (datetime.now(timezone.utc) - created_at).total_seconds()
+    age_seconds = (datetime.now(UTC) - created_at).total_seconds()
     age_days = age_seconds / 86400
     return math.exp(-_DECAY_LAMBDA * age_days)
 
