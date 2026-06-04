@@ -1,0 +1,18 @@
+target-version = "py312"
+line-length = 100
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes (undefined names, unused imports)
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",   # line too long — handled by formatter, not enforced here
+    "UP007",  # X | Y union syntax — keep Optional[] for readability in schemas
+]
+
+[lint.per-file-ignores]
+"scripts/*" = ["F401", "F811"]

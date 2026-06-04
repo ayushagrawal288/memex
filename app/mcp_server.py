@@ -38,6 +38,12 @@ from app.api.routes.mcp_tools import mcp_server
 from app.core.config import settings
 from app.db.pool import close_pool, init_pool, run_migrations
 
+# Eagerly initialise the Streamable HTTP session manager so that
+# mcp_server.session_manager is accessible before the lifespan runs.
+# This call must stay here (HTTP entry point), NOT in mcp_tools.py, because
+# importing mcp_tools in stdio mode must not trigger HTTP transport setup.
+mcp_server.streamable_http_app()  # noqa: F841 — side-effect: creates session_manager
+
 logger = logging.getLogger(__name__)
 
 

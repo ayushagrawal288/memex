@@ -197,7 +197,8 @@ async def count_memories(agent_id: str, user_id: str) -> str:
     return f"Agent '{agent_id}' / User '{user_id}' has {count} stored {noun}."
 
 
-# Initialize the streamable HTTP session manager eagerly so that
-# mcp_server.session_manager is accessible before the lifespan runs.
-# The actual task group is started in app/main.py lifespan via session_manager.run().
-mcp_server.streamable_http_app()  # noqa: F841 — side-effect: creates session_manager
+# NOTE: streamable_http_app() is intentionally NOT called here.
+# It is called in app/mcp_server.py (HTTP entry point) so that the HTTP session
+# manager is only initialised when running in HTTP mode.
+# Importing this module in stdio mode (app/stdio_server.py) must not trigger any
+# HTTP transport setup, otherwise mcp-proxy's stdio subprocess crashes on connect.
