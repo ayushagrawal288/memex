@@ -1,5 +1,9 @@
 FROM python:3.12-slim
 
+# MCP registry ownership verification label
+# See: https://github.com/modelcontextprotocol/registry
+LABEL io.modelcontextprotocol.server.name="io.github.ayushagrawal288/memex"
+
 WORKDIR /app
 
 COPY requirements.txt .
