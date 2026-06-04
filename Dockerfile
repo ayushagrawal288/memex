@@ -11,7 +11,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Pre-bake the ONNX model weights into the image (~67 MB) so the container
 # starts without any network I/O.
-RUN python3 -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BAAI/bge-small-en-v1.5')"
+# Set SKIP_MODEL_BAKE=1 in CI to skip the download (CI only verifies the build,
+# not that the model is cached).
+ARG SKIP_MODEL_BAKE=0
+RUN if [ "$SKIP_MODEL_BAKE" = "0" ]; then \
+    python3 -c "from fastembed import TextEmbedding; TextEmbedding(model_name='BAAI/bge-small-en-v1.5')"; \
+fi
 
 COPY . .
 

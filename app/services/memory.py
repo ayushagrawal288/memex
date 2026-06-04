@@ -22,8 +22,6 @@ import math
 from datetime import datetime, timezone
 from uuid import UUID
 
-import asyncpg
-
 from app.core.config import settings
 from app.db.pool import get_pool
 from app.models.schemas import MemoryCreate, MemoryResponse, MemoryType

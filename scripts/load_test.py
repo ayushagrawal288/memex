@@ -26,8 +26,8 @@ Design:
 
 import random
 
-import requests
 from locust import HttpUser, between, constant_throughput, events, task
+import requests
 
 # ---------------------------------------------------------------------------
 # Shared agent/user pool — seeded once by test_start hook
