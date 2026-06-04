@@ -5,6 +5,9 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)](https://fastapi.tiangolo.com)
 [![MCP](https://img.shields.io/badge/MCP-Streamable%20HTTP-purple)](https://modelcontextprotocol.io)
 [![License: MIT](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
+[![ayushagrawal288/memex MCP server](https://glama.ai/mcp/servers/ayushagrawal288/memex/badges/score.svg)](https://glama.ai/mcp/servers/ayushagrawal288/memex)
+
+[![memex MCP server](https://glama.ai/mcp/servers/ayushagrawal288/memex/badges/card.svg)](https://glama.ai/mcp/servers/ayushagrawal288/memex)
 
 A production-grade persistent memory service for AI agents. Agents forget everything between sessions by default — memex fixes that. It stores, retrieves, and ranks conversation memory using semantic search with recency decay, so agents surface what's relevant *and* recent, not just what's semantically closest.
 
